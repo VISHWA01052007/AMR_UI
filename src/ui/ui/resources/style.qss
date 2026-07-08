@@ -1,0 +1,707 @@
+/* =====================================================================
+   ROBOTIC_CORE v2.4  —  AMR Dashboard Stylesheet
+   Palette + type scale lifted 1:1 from the Google Stitch HTML export
+   (Tailwind config). This file is the ONLY place visual styling lives —
+   no widget in /widgets sets colors, fonts, or spacing directly.
+
+   Font-family declarations list "Inter" / "JetBrains Mono" first and
+   fall back to close system equivalents if those aren't installed.
+
+   Paths below use the {{ICONS_DIR}} token, which ui_node.py resolves to
+   an absolute, forward-slash path at load time (Qt requires this for
+   url() to work reliably regardless of the process's working directory).
+   ===================================================================== */
+
+/* -------------------- Palette reference (for humans) --------------------
+   background                #131313
+   surface                   #131313
+   surface-container-lowest  #0e0e0e
+   surface-container-low     #1c1b1b
+   surface-container          #201f1f
+   surface-container-high     #2a2a2a
+   surface-container-highest  #353534
+   surface-bright              #393939
+   outline                    #89919d
+   outline-variant             #404752
+   on-surface                  #e5e2e1
+   on-surface-variant          #bfc7d4
+   primary                     #9ecaff
+   on-primary                  #003258
+   primary-container           #2196f3
+   secondary                   #44d8f1
+   secondary-container         #00bcd4
+   tertiary                    #ffb4a9
+   tertiary-container          #ff5748
+   error                       #ffb4ab
+   error-container             #93000a
+   on-error-container          #ffdad6
+--------------------------------------------------------------------------*/
+
+* {
+    outline: none;
+}
+
+QWidget {
+    background-color: #131313;
+    color: #e5e2e1;
+    font-family: "Inter", "Segoe UI", "Helvetica Neue", "Roboto", sans-serif;
+    font-size: 13px;
+    selection-background-color: #2196f3;
+    selection-color: #ffffff;
+}
+
+QMainWindow {
+    background-color: #131313;
+}
+
+QToolTip {
+    background-color: #2a2a2a;
+    color: #e5e2e1;
+    border: 1px solid #404752;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+/* ===================== SCROLLBARS ===================== */
+
+QScrollArea {
+    border: none;
+    background: transparent;
+}
+
+QScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px 1px 2px 0px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: rgba(137, 145, 157, 0.35);
+    border-radius: 5px;
+    min-height: 28px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: rgba(158, 202, 255, 0.55);
+}
+
+QScrollBar::handle:vertical:pressed {
+    background: rgba(158, 202, 255, 0.8);
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+    background: none;
+    border: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+    margin: 0px 2px 1px 2px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:horizontal {
+    background: rgba(137, 145, 157, 0.35);
+    border-radius: 5px;
+    min-width: 28px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: rgba(158, 202, 255, 0.55);
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+    background: none;
+    border: none;
+}
+
+/* ===================== HEADER ===================== */
+
+#HeaderWidget {
+    background-color: rgba(19, 19, 19, 0.94);
+    border-bottom: 1px solid #262626;
+}
+
+#HeaderTitle {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: #9ecaff;
+    background: transparent;
+}
+
+#HeaderIconLabel {
+    color: #44d8f1;
+    font-size: 16px;
+    background: transparent;
+}
+
+#BatteryLabel {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    color: #44d8f1;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: transparent;
+}
+
+#EmergencyStopButton {
+    background-color: #93000a;
+    color: #ffdad6;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border: 1px solid rgba(255, 218, 214, 0.15);
+    border-radius: 8px;
+    padding: 9px 22px;
+}
+
+#EmergencyStopButton:hover {
+    background-color: #ffb4ab;
+    color: #690005;
+    border: 1px solid rgba(105, 0, 5, 0.2);
+}
+
+#EmergencyStopButton:pressed {
+    background-color: #d88f88;
+    padding: 10px 22px 8px 22px;
+}
+
+#AvatarLabel {
+    background-color: #2a2a2a;
+    border: 1px solid #404752;
+    border-radius: 16px;
+    image: url({{ICONS_DIR}}/avatar_placeholder.png);
+}
+
+/* ===================== GENERIC PANEL ("glass" cards) ===================== */
+
+QFrame[panel="true"] {
+    background-color: rgba(42, 42, 42, 0.38);
+    border: 1px solid rgba(64, 71, 82, 0.55);
+    border-radius: 12px;
+}
+
+QFrame[panel="true"]:hover {
+    border: 1px solid rgba(64, 71, 82, 0.8);
+}
+
+QLabel[panelTitle="true"] {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #9ecaff;
+    background: transparent;
+}
+
+QLabel[panelSubIcon="true"] {
+    color: rgba(191, 199, 212, 0.55);
+    font-size: 15px;
+    background: transparent;
+}
+
+QFrame[divider="true"] {
+    background-color: rgba(64, 71, 82, 0.35);
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+/* ===================== MAP WIDGET ===================== */
+
+#MapWidget {
+    background-color: #0e0e0e;
+    border: none;
+}
+
+#MapToolbar {
+    background-color: #151518;
+    border-bottom: 1px solid #2e2e36;
+}
+
+#MapToolbar QPushButton {
+    background-color: #22222a;
+    color: #ffffff;
+    border: 1px solid #3a3a44;
+    padding: 6px 12px;
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+#MapToolbar QPushButton:hover {
+    background-color: #ff4757;
+    border-color: #ff4757;
+}
+
+#MapPlaceholderLabel {
+    color: #40485a;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    background: transparent;
+}
+
+/* ===================== ROBOT STATUS ===================== */
+
+#StatusDot {
+    background-color: #44d8f1;
+    border: 1px solid rgba(68, 216, 241, 0.4);
+    border-radius: 4px;
+    min-width: 8px;
+    max-width: 8px;
+    min-height: 8px;
+    max-height: 8px;
+}
+
+QFrame[metricCard="true"] {
+    background-color: #242424;
+    border: 1px solid rgba(64, 71, 82, 0.5);
+    border-radius: 8px;
+}
+
+QFrame[metricCard="true"]:hover {
+    border: 1px solid rgba(158, 202, 255, 0.35);
+    background-color: #272727;
+}
+
+QLabel[metricLabel="true"] {
+    color: #bfc7d4;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    background: transparent;
+}
+
+QLabel[metricValue="true"] {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    color: #9ecaff;
+    font-size: 20px;
+    font-weight: 700;
+    background: transparent;
+}
+
+QLabel[metricIcon="true"] {
+    color: #44d8f1;
+    font-size: 15px;
+    background: transparent;
+}
+
+/* ===================== BUTTONS: general secondary / primary ===================== */
+
+QPushButton[styleClass="secondaryAction"] {
+    background-color: #353534;
+    color: #bfc7d4;
+    border: 1px solid rgba(64, 71, 82, 0.65);
+    border-radius: 6px;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 8px;
+}
+
+QPushButton[styleClass="secondaryAction"]:hover {
+    background-color: #3d3d3c;
+    border: 1px solid rgba(158, 202, 255, 0.5);
+    color: #e5e2e1;
+}
+
+QPushButton[styleClass="secondaryAction"]:pressed {
+    background-color: #2a2a2a;
+    padding: 12px 8px 10px 8px;
+}
+
+QPushButton[styleClass="primaryAction"] {
+    background-color: rgba(158, 202, 255, 0.1);
+    color: #9ecaff;
+    border: 1px solid rgba(158, 202, 255, 0.4);
+    border-radius: 6px;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 8px;
+}
+
+QPushButton[styleClass="primaryAction"]:hover {
+    background-color: rgba(158, 202, 255, 0.2);
+    border: 1px solid rgba(158, 202, 255, 0.6);
+}
+
+QPushButton[styleClass="primaryAction"]:pressed {
+    background-color: rgba(158, 202, 255, 0.32);
+    padding: 12px 8px 10px 8px;
+}
+
+/* ===================== SLAM MAPPING CARD SPECIFICS ===================== */
+
+#SlamMappingWidget QPushButton {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 6px;
+}
+
+#SlamMappingWidget QPushButton[styleClass="primaryAction"][active="true"] {
+    background-color: rgba(64, 71, 82, 0.15);
+    color: rgba(191, 199, 212, 0.3);
+    border: 1px solid rgba(64, 71, 82, 0.25);
+}
+
+#SlamMappingWidget QPushButton[styleClass="secondaryAction"][active="true"] {
+    background-color: #93000a;
+    color: #ffdad6;
+    border: 1px solid rgba(255, 218, 214, 0.15);
+}
+
+#SlamMappingWidget QPushButton[styleClass="secondaryAction"][active="true"]:hover {
+    background-color: #ffb4ab;
+    color: #690005;
+}
+
+/* ===================== NAVIGATION ===================== */
+
+QPushButton[styleClass="navChip"] {
+    background-color: #2a2a2a;
+    color: #e5e2e1;
+    border: 1px solid rgba(64, 71, 82, 0.55);
+    border-radius: 6px;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 11px 4px;
+}
+
+QPushButton[styleClass="navChip"]:hover {
+    border: 1px solid rgba(158, 202, 255, 0.55);
+    background-color: #2f2f2f;
+}
+
+QPushButton[styleClass="navChip"]:pressed {
+    background-color: #232323;
+    padding: 12px 4px 10px 4px;
+}
+
+QPushButton[styleClass="startButton"] {
+    background-color: #9ecaff;
+    color: #003258;
+    border: none;
+    border-radius: 10px;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 15px;
+}
+
+QPushButton[styleClass="startButton"]:hover {
+    background-color: #c2dfff;
+}
+
+QPushButton[styleClass="startButton"]:pressed {
+    background-color: #7fb8f5;
+    padding: 16px 15px 14px 15px;
+}
+
+QPushButton[styleClass="abortButton"] {
+    background-color: #93000a;
+    color: #ffdad6;
+    border: none;
+    border-radius: 10px;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 15px;
+}
+
+QPushButton[styleClass="abortButton"]:hover {
+    background-color: #ffb4ab;
+    color: #690005;
+}
+
+QPushButton[styleClass="abortButton"]:pressed {
+    background-color: #d88f88;
+    padding: 16px 15px 14px 15px;
+}
+
+/* ===================== TOGGLE SWITCH (CSS Vector Pill Style) ===================== */
+
+QCheckBox[styleClass="toggleSwitch"] {
+    spacing: 0px;
+    background: transparent;
+}
+
+QCheckBox[styleClass="toggleSwitch"]::indicator {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+}
+
+/* State: Unchecked (OFF) -> Sleek dark-charcoal track with a left-aligned white node circle */
+QCheckBox[styleClass="toggleSwitch"]::indicator:unchecked {
+    background-color: #353534;
+    border: 1px solid #404752;
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24'><circle cx='12' cy='12' r='8' fill='%23ffffff'/></svg>");
+}
+
+QCheckBox[styleClass="toggleSwitch"]::indicator:unchecked:hover {
+    background-color: #3d3d3c;
+    border-color: #89919d;
+}
+
+/* State: Checked (ON) -> High-contrast cyan track with a right-aligned white node circle */
+QCheckBox[styleClass="toggleSwitch"]::indicator:checked {
+    background-color: #44d8f1;
+    border: 1px solid #00bcd4;
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24'><circle cx='32' cy='12' r='8' fill='%23ffffff'/></svg>");
+}
+
+QCheckBox[styleClass="toggleSwitch"]::indicator:checked:hover {
+    background-color: #00bcd4;
+}
+
+/* State: Disabled / Locked Out */
+QCheckBox[styleClass="toggleSwitch"]::indicator:disabled {
+    background-color: #1c1b1b;
+    border-color: #2a2a2a;
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24'><circle cx='12' cy='12' r='8' fill='%23555555'/></svg>");
+}
+
+/* ===================== MANUAL CONTROL ===================== */
+
+QPushButton[styleClass="dpad"] {
+    background-color: #2a2a2a;
+    border: 1px solid rgba(64, 71, 82, 0.6);
+    border-radius: 8px;
+    color: #9ecaff;
+    font-size: 19px;
+    font-weight: 600;
+    min-width: 48px;
+    min-height: 48px;
+    max-width: 48px;
+    max-height: 48px;
+}
+
+QPushButton[styleClass="dpad"]:hover {
+    background-color: rgba(158, 202, 255, 0.15);
+    border: 1px solid rgba(158, 202, 255, 0.55);
+}
+
+QPushButton[styleClass="dpad"]:pressed {
+    background-color: rgba(158, 202, 255, 0.32);
+    border: 1px solid rgba(158, 202, 255, 0.75);
+}
+
+QPushButton[styleClass="dpadStop"] {
+    background-color: rgba(147, 0, 10, 0.16);
+    border: 1px solid rgba(255, 180, 171, 0.4);
+    border-radius: 8px;
+    color: #ffb4ab;
+    font-size: 18px;
+    font-weight: 700;
+    min-width: 48px;
+    min-height: 48px;
+    max-width: 48px;
+    max-height: 48px;
+}
+
+QPushButton[styleClass="dpadStop"]:hover {
+    background-color: rgba(147, 0, 10, 0.36);
+    border: 1px solid rgba(255, 180, 171, 0.65);
+}
+
+QPushButton[styleClass="dpadStop"]:pressed {
+    background-color: rgba(147, 0, 10, 0.55);
+}
+
+/* ===================== VELOCITY CONTROLS ===================== */
+
+QLabel[velocityCaption="true"] {
+    color: #bfc7d4;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    background: transparent;
+}
+
+QFrame[velocityRow="true"] {
+    background-color: rgba(28, 27, 27, 0.65);
+    border: 1px solid rgba(64, 71, 82, 0.45);
+    border-radius: 8px;
+}
+
+QPushButton[styleClass="velocityAdjust"] {
+    background-color: #353534;
+    border: 1px solid rgba(64, 71, 82, 0.65);
+    border-radius: 5px;
+    color: #e5e2e1;
+    font-size: 15px;
+    font-weight: 700;
+    min-width: 36px;
+    min-height: 36px;
+    max-width: 36px;
+    max-height: 36px;
+}
+
+QPushButton[styleClass="velocityAdjust"]:hover {
+    color: #9ecaff;
+    background-color: #3d3d3c;
+    border: 1px solid rgba(158, 202, 255, 0.55);
+}
+
+QPushButton[styleClass="velocityAdjust"]:pressed {
+    background-color: #2a2a2a;
+    color: #c2dfff;
+}
+
+QLabel[velocityValue="true"] {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    color: #9ecaff;
+    font-size: 18px;
+    font-weight: 700;
+    background-color: #0e0e0e;
+    border: 1px solid rgba(64, 71, 82, 0.35);
+    border-radius: 5px;
+}
+
+/* ===================== WAYPOINTS ===================== */
+
+QPushButton[styleClass="waypointTile"] {
+    background-color: rgba(53, 53, 52, 0.42);
+    border: 1px solid rgba(64, 71, 82, 0.55);
+    border-radius: 8px;
+    color: #e5e2e1;
+    padding: 10px;
+}
+
+QPushButton[styleClass="waypointTile"]:hover {
+    border: 1px solid rgba(158, 202, 255, 0.55);
+    background-color: rgba(53, 53, 52, 0.72);
+}
+
+QPushButton[styleClass="waypointTile"]:pressed {
+    background-color: rgba(53, 53, 52, 0.9);
+}
+
+QPushButton[styleClass="waypointAdd"] {
+    background-color: rgba(158, 202, 255, 0.07);
+    border: 1px solid rgba(158, 202, 255, 0.28);
+    border-radius: 8px;
+    color: #9ecaff;
+    padding: 10px;
+}
+
+QPushButton[styleClass="waypointAdd"]:hover {
+    background-color: rgba(158, 202, 255, 0.16);
+    border: 1px solid rgba(158, 202, 255, 0.5);
+}
+
+QPushButton[styleClass="waypointAdd"]:pressed {
+    background-color: rgba(158, 202, 255, 0.26);
+}
+
+QPushButton[styleClass="waypointDelete"] {
+    background-color: rgba(147, 0, 10, 0.07);
+    border: 1px solid rgba(255, 180, 171, 0.22);
+    border-radius: 8px;
+    color: rgba(255, 180, 171, 0.88);
+    padding: 10px;
+}
+
+QPushButton[styleClass="waypointDelete"]:hover {
+    background-color: rgba(147, 0, 10, 0.22);
+    border: 1px solid rgba(255, 180, 171, 0.5);
+}
+
+QPushButton[styleClass="waypointDelete"]:pressed {
+    background-color: rgba(147, 0, 10, 0.35);
+}
+
+#WaypointTileIcon {
+    font-size: 17px;
+    background: transparent;
+    border: none;
+}
+
+#WaypointTileLabel {
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    background: transparent;
+    border: none;
+}
+
+QPushButton[styleClass="mapFolder"] {
+    background-color: transparent;
+    border: none;
+    color: rgba(191, 199, 212, 0.6);
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 4px;
+}
+
+QPushButton[styleClass="mapFolder"]:hover {
+    color: #9ecaff;
+}
+
+QPushButton[styleClass="mapFolder"]:pressed {
+    color: #c2dfff;
+}
+
+/* ===================== MISSION LOG ===================== */
+
+#MissionLogText {
+    background-color: #0e0e0e;
+    border: 1px solid rgba(64, 71, 82, 0.45);
+    border-radius: 8px;
+    font-family: "JetBrains Mono", "Consolas", "SF Mono", monospace;
+    font-size: 11px;
+    color: #e5e2e1;
+    padding: 10px;
+    selection-background-color: #2196f3;
+}
+
+/* ===================== SECTION FRAMES (footer areas) ===================== */
+
+#ManualControlWidget, #WaypointWidget {
+    background-color: rgba(42, 42, 42, 0.14);
+    border: 1px solid rgba(64, 71, 82, 0.32);
+    border-radius: 12px;
+}
+
+#ManualControlWidget:hover, #WaypointWidget:hover {
+    border: 1px solid rgba(64, 71, 82, 0.55);
+}
+
+#FooterBar {
+    background-color: rgba(23, 23, 25, 0.94);
+    border-top: 1px solid rgba(64, 71, 82, 0.45);
+}
+
+#RightSidebar {
+    background-color: #19191a;
+    border-left: 1px solid #262626;
+}
