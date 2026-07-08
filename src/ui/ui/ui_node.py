@@ -146,9 +146,18 @@ class UINode(Node):
                 pgid = self._slam_process.pid
                 print(f"[DEBUG UINODE] Sending SIGTERM to process group PGID: {pgid}")
                 os.killpg(pgid, signal.SIGTERM)
-                self._slam_process.wait(timeout=1.0)
+                self._slam_process.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                print("[WARNING UINODE] SLAM process hung. Escalating to SIGKILL...")
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                    self._slam_process.wait()
+                except Exception: pass
             except Exception: pass
             self._slam_process = None
+        
+        # ✅ Clear the map cache explicitly when stopping the mapping pipeline
+        self._map_controller.clear_map()
         self.request_mode_transition("IDLE")
 
     def handle_slam_save(self, filename: str) -> None:
@@ -182,9 +191,18 @@ class UINode(Node):
                 pgid = self._navigation_process.pid
                 print(f"[DEBUG UINODE] Sending SIGTERM to navigation group PGID: {pgid}")
                 os.killpg(pgid, signal.SIGTERM)
-                self._navigation_process.wait(timeout=1.0)
+                self._navigation_process.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                print("[WARNING UINODE] Navigation process hung. Escalating to SIGKILL...")
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                    self._navigation_process.wait()
+                except Exception: pass
             except Exception: pass
             self._navigation_process = None
+        
+        # ✅ Clear the map cache explicitly when tearing down navigation targets
+        self._map_controller.clear_map()
         self.request_mode_transition("IDLE")
 
     def handle_navigation_abort(self) -> None:
@@ -233,11 +251,13 @@ class UINode(Node):
         self._robot_status_controller.update(msg.twist.twist.linear.x, msg.twist.twist.angular.z)
 
     def map_callback(self, msg: OccupancyGrid) -> None:
-        # ✅ Always update map whenever it is available on the network
+        if self._current_operation_mode == "IDLE":
+            return
         self._map_controller.set_map(msg)
 
     def lookup_robot_pose_callback(self) -> None:
-        # ✅ Always lookup and update robot pose to handle manual teleoperation anytime
+        if self._current_operation_mode == "IDLE":
+            return
         for base_frame in ['base_footprint', 'base_link']:
             try:
                 trans = self._tf_buffer.lookup_transform('map', base_frame, rclpy.time.Time())

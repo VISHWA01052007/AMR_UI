@@ -5,8 +5,9 @@ Clean UI buttons for mapping execution routines matching the global core QSS des
 """
 
 import os
-from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget, QInputDialog
+from PyQt6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 from ..config import settings
+from .save_map_dialog import SaveMapDialog
 
 class SlamMappingWidget(QFrame):
     """Panel rendering SLAM runtime controls styled cleanly to integrate into the sidebar."""
@@ -44,6 +45,7 @@ class SlamMappingWidget(QFrame):
         self.save_map_button = QPushButton("Save Map File")
         self.save_map_button.setProperty("styleClass", "secondaryAction")
 
+        # Connect slots
         self.start_mapping_button.clicked.connect(self._controller.request_start)
         self.stop_mapping_button.clicked.connect(self._controller.request_stop)
         self.save_map_button.clicked.connect(self._on_save_button_clicked)
@@ -55,12 +57,17 @@ class SlamMappingWidget(QFrame):
         outer.addLayout(grid)
 
     def _on_save_button_clicked(self) -> None:
-        filename, ok = QInputDialog.getText(self, "Save Map", "Enter map filename (without extension):", text="map1")
-        if ok and filename.strip():
-            full_path = os.path.join(settings.MAPS_EXPORT_DIR, filename.strip())
-            self._controller.request_save(full_path)
+        """Prompts for filename using our bespoke, cleanly integrated theme modal window."""
+        dialog = SaveMapDialog(self)
+        
+        if dialog.exec():
+            filename = dialog.get_filename()
+            if filename:
+                full_path = os.path.join(settings.MAPS_EXPORT_DIR, filename)
+                self._controller.request_save(full_path)
 
     def _on_state_changed(self) -> None:
+        """Modifies button accessibility and text based on global QSS properties."""
         ctrl = self._controller
 
         self.start_mapping_button.setStyleSheet("")

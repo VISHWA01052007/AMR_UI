@@ -103,9 +103,19 @@ class MapWidget(QWidget):
             self._fit_map_to_canvas()
 
     def _on_map_updated(self, msg: OccupancyGrid) -> None:
+        # ✅ Debug print for monitoring the incoming data pipeline
+        #print("MAP WIDGET RECEIVED:", msg)
+
         if msg is None:
             self._map_pixmap = None
             self._initial_fit_done = False
+            
+            # ✅ Complete geometric coordinate clean sweep layout reset
+            self._zoom_factor = 1.0
+            self._pan_x = 0.0
+            self._pan_y = 0.0
+            self._rotation_angle = 0.0
+            
             self.canvas.update()
             return
             

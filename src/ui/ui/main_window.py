@@ -2,8 +2,11 @@
 main_window.py
 --------------
 Assembles the AMR dashboard from independent widgets.
+Configures robust global application-wide keyboard shortcuts for teleoperation.
 """
 
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QShortcut, QKeySequence
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QMainWindow,
@@ -37,7 +40,44 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("ROBOTIC_CORE v2.4 — AMR Dashboard")
         self.resize(1440, 900)
+        
+        # ✅ Initialize and link the application-scoped hotkeys layout map
+        self._setup_keyboard_shortcuts()
+        
         self._assemble_ui()
+
+    def _setup_keyboard_shortcuts(self) -> None:
+        """Registers keyboard shortcuts for manual robot control with global context."""
+        
+        # --- Move Forward (W) ---
+        self.shortcut_forward = QShortcut(QKeySequence("W"), self)
+        self.shortcut_forward.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.shortcut_forward.activated.connect(self._manual_controller.move_forward)
+
+        # --- Move Backward (S) ---
+        self.shortcut_backward = QShortcut(QKeySequence("S"), self)
+        self.shortcut_backward.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.shortcut_backward.activated.connect(self._manual_controller.move_backward)
+
+        # --- Turn Left (A) ---
+        self.shortcut_left = QShortcut(QKeySequence("A"), self)
+        self.shortcut_left.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.shortcut_left.activated.connect(self._manual_controller.turn_left)
+
+        # --- Turn Right (D) ---
+        self.shortcut_right = QShortcut(QKeySequence("D"), self)
+        self.shortcut_right.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.shortcut_right.activated.connect(self._manual_controller.turn_right)
+
+        # --- Hard Stop (Space) ---
+        self.shortcut_stop = QShortcut(QKeySequence("Space"), self)
+        self.shortcut_stop.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.shortcut_stop.activated.connect(self._manual_controller.stop)
+
+        # --- Emergency Stop Fallback (Escape) ---
+        self.shortcut_escape = QShortcut(QKeySequence("Escape"), self)
+        self.shortcut_escape.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.shortcut_escape.activated.connect(self._manual_controller.stop)
 
     def _assemble_ui(self) -> None:
         central_widget = QWidget()
@@ -66,7 +106,6 @@ class MainWindow(QMainWindow):
         left_column.setSpacing(0)
 
         # --- Top Area: Live Map Display (Takes maximum available space) -------
-        # ✅ Fix 2: Injected both map and navigation controller references into the map widget
         self.map_widget = MapWidget(map_controller=self._map_controller, navigation_controller=self._navigation_controller)
         left_column.addWidget(self.map_widget, stretch=1)
 
