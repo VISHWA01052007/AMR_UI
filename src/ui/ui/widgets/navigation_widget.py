@@ -2,6 +2,7 @@
 navigation_widget.py
 ---------------------
 Visual control block for Nav2 operations matching the classic layout.
+Features contextual workflow interlocks driven by goal staging lifecycles.
 """
 
 from PyQt6.QtCore import Qt
@@ -9,6 +10,8 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayou
 from ..config import settings
 
 class NavigationWidget(QFrame):
+    """Panel rendering classic Navigation runtime controls styled cleanly to integrate into the sidebar."""
+
     def __init__(self, controller, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._controller = controller
@@ -24,6 +27,7 @@ class NavigationWidget(QFrame):
         outer.setContentsMargins(20, 20, 20, 20)
         outer.setSpacing(16)
 
+        # --- Header row: title + navigation-enabled toggle switch ---
         header_row = QHBoxLayout()
         title_label = QLabel("NAVIGATION")
         title_label.setProperty("panelTitle", True)
@@ -37,6 +41,7 @@ class NavigationWidget(QFrame):
         header_row.addWidget(self.navigation_toggle)
         outer.addLayout(header_row)
 
+        # --- Row 1: Set Pose / Set Goal --------------------------------------
         row1 = QHBoxLayout()
         row1.setSpacing(8)
         self.set_initial_pose_button = QPushButton("Set Pose")
@@ -51,6 +56,7 @@ class NavigationWidget(QFrame):
         row1.addWidget(self.set_goal_pose_button)
         outer.addLayout(row1)
 
+        # --- Row 2: Waypoints / Continuous Motion -----------------------------
         row2 = QHBoxLayout()
         row2.setSpacing(8)
         self.waypoints_button = QPushButton("Waypoints")
@@ -62,6 +68,7 @@ class NavigationWidget(QFrame):
         row2.addWidget(self.continuous_motion_button)
         outer.addLayout(row2)
 
+        # --- Row 3: Start / Abort ---------------------------------------------
         row3 = QHBoxLayout()
         row3.setSpacing(12)
         self.start_button = QPushButton("START")
@@ -77,10 +84,13 @@ class NavigationWidget(QFrame):
         outer.addLayout(row3)
 
     def _on_toggle_clicked(self) -> None:
+        """Handles map file picking options right as the switch gets checked ON."""
         if self.navigation_toggle.isChecked():
             file_path, _ = QFileDialog.getOpenFileName(
-                self, "Select Navigation Workspace Map Configuration",
-                settings.MAPS_EXPORT_DIR, "Map Metadata Files (*.yaml)"
+                self,
+                "Select Navigation Workspace Map Configuration",
+                settings.MAPS_EXPORT_DIR,
+                "Map Metadata Files (*.yaml)"
             )
             if not file_path:
                 self.navigation_toggle.setChecked(False)
@@ -90,6 +100,7 @@ class NavigationWidget(QFrame):
             self._controller.request_toggle(False, "")
 
     def _on_state_changed(self) -> None:
+        """Modifies button text, colors, and capabilities matching system architecture feedback."""
         ctrl = self._controller
         
         self.navigation_toggle.blockSignals(True)
@@ -110,14 +121,16 @@ class NavigationWidget(QFrame):
             return
 
         self.navigation_toggle.setEnabled(not ctrl.busy)
-        
         is_ready = ctrl.running and not ctrl.busy
+        
         self.set_initial_pose_button.setEnabled(is_ready)
         self.set_goal_pose_button.setEnabled(is_ready)
         self.waypoints_button.setEnabled(is_ready)
         self.continuous_motion_button.setEnabled(is_ready)
-        self.start_button.setEnabled(is_ready)
         self.abort_button.setEnabled(is_ready)
+
+        # ✅ FIX: The START execution button remains disabled until a valid pending candidate exists
+        self.start_button.setEnabled(is_ready and ctrl.has_pending_goal() and not ctrl.active_goal)
 
         if ctrl.interaction_mode == "INITIAL_POSE":
             self.set_initial_pose_button.setStyleSheet("background-color: #2a2a2a; border: 2px solid #2196f3; color: #ffffff; font-weight: bold;")

@@ -156,7 +156,6 @@ class UINode(Node):
             except Exception: pass
             self._slam_process = None
         
-        # ✅ Clear the map cache explicitly when stopping the mapping pipeline
         self._map_controller.clear_map()
         self.request_mode_transition("IDLE")
 
@@ -200,9 +199,6 @@ class UINode(Node):
                 except Exception: pass
             except Exception: pass
             self._navigation_process = None
-        
-        # ✅ Clear the map cache explicitly when tearing down navigation targets
-        self._map_controller.clear_map()
         self.request_mode_transition("IDLE")
 
     def handle_navigation_abort(self) -> None:

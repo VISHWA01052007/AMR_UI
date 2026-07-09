@@ -7,7 +7,7 @@ Handles robust view scaling inside the native resize window framework.
 
 import math
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFrame
-from PyQt6.QtGui import QPainter, QImage, QPixmap, QColor, QPen, QBrush, QTransform
+from PyQt6.QtGui import QPainter, QImage, QPixmap, QColor, QPen, QBrush, QTransform, QPolygonF
 from PyQt6.QtCore import Qt, QPointF, QRectF
 from nav_msgs.msg import OccupancyGrid
 
@@ -103,14 +103,10 @@ class MapWidget(QWidget):
             self._fit_map_to_canvas()
 
     def _on_map_updated(self, msg: OccupancyGrid) -> None:
-        # ✅ Debug print for monitoring the incoming data pipeline
-        #print("MAP WIDGET RECEIVED:", msg)
-
         if msg is None:
             self._map_pixmap = None
             self._initial_fit_done = False
             
-            # ✅ Complete geometric coordinate clean sweep layout reset
             self._zoom_factor = 1.0
             self._pan_x = 0.0
             self._pan_y = 0.0
@@ -212,22 +208,82 @@ class MapWidget(QWidget):
             self._is_placing_pose = False
             self._drag_current_world = self._pixel_to_world(event.position())
             
-            dx = self._drag_current_world.x() - self._drag_start_world.x()
-            dy = self._drag_current_world.y() - self._drag_start_world.y()
-            yaw = math.atan2(dy, dx)
+            # ✅ FIX: Get the exact map pixel coordinates of the drag endpoints to avoid transformation bugs
+            smx, smy = self._world_to_map_pixels(self._drag_start_world.x(), self._drag_start_world.y())
+            cmx, cmy = self._world_to_map_pixels(self._drag_current_world.x(), self._drag_current_world.y())
+            
+            # Calculate delta directly in map pixel space (where Y points down)
+            pm_dx = cmx - smx
+            pm_dy = cmy - smy
+            
+            # Convert screen delta to clean ROS world yaw (negate Y because world Y is up)
+            yaw = math.atan2(-pm_dy, pm_dx)
 
             if self._nav_controller.interaction_mode == "INITIAL_POSE":
                 self._nav_controller.publish_initial_pose(self._drag_start_world.x(), self._drag_start_world.y(), yaw)
             elif self._nav_controller.interaction_mode == "GOAL_SELECTION":
-                self._nav_controller.publish_goal_pose(self._drag_start_world.x(), self._drag_start_world.y(), yaw)
+                self._nav_controller.set_pending_goal(self._drag_start_world.x(), self._drag_start_world.y(), yaw)
                 
         elif event.button() == Qt.MouseButton.LeftButton:
             self._is_panning = False
 
+    def _draw_direction_arrow(self, painter: QPainter, start_map: QPointF, end_map: QPointF, base_color: QColor) -> None:
+        """Paints a highly legible, anti-aliased solid directional arrow with downscaled industrial proportions."""
+        dx = end_map.x() - start_map.x()
+        dy = end_map.y() - start_map.y()
+        length = math.hypot(dx, dy)
+        
+        if length < 1e-3:
+            return
+
+        angle = math.atan2(dy, dx)
+
+        scaled_head_len = max(10.0, min(25.0, 14.0 * self._zoom_factor))
+        scaled_head_width = scaled_head_len * 0.70
+        shaft_thickness = max(1.5, min(5.0, 2.5 * self._zoom_factor))
+
+        painter.save()
+        painter.translate(start_map)
+        painter.rotate(math.degrees(angle))
+
+        # 1. Background Glow Pass Configuration
+        glow_color = QColor(base_color.red(), base_color.green(), base_color.blue(), 35)
+        glow_shaft = QPen(glow_color, shaft_thickness * 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(glow_shaft)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawLine(QPointF(0, 0), QPointF(length - scaled_head_len, 0))
+
+        glow_poly = QPolygonF([
+            QPointF(length, 0),
+            QPointF(length - scaled_head_len, -scaled_head_width * 0.7),
+            QPointF(length - scaled_head_len, scaled_head_width * 0.7)
+        ])
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(glow_color))
+        painter.drawPolygon(glow_poly)
+
+        # 2. Foreground Core Arrow Vector Pass Configuration
+        core_color = QColor(base_color.red(), base_color.green(), base_color.blue(), 230)
+        core_shaft = QPen(core_color, shaft_thickness, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(core_shaft)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawLine(QPointF(0, 0), QPointF(length - scaled_head_len, 0))
+
+        core_poly = QPolygonF([
+            QPointF(length, 0),
+            QPointF(length - scaled_head_len, -scaled_head_width / 2.0),
+            QPointF(length - scaled_head_len, scaled_head_width / 2.0)
+        ])
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(core_color))
+        painter.drawPolygon(core_poly)
+
+        painter.restore()
+
     def _canvas_paint_event(self, event) -> None:
         painter = QPainter(self.canvas)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
 
         painter.fillRect(self.canvas.rect(), QColor("#1c1c1f"))
         map_msg = self._controller.latest_map
@@ -252,7 +308,18 @@ class MapWidget(QWidget):
                 m2x, m2y = self._world_to_map_pixels(p2_w[0], p2_w[1])
                 painter.drawLine(QPointF(m1x, m1y), QPointF(m2x, m2y))
 
-        # 3. Render Static Target Goals Marker Box
+        # 3. Render Persistent Local Pending Goal Target Preview
+        if self._nav_controller and self._nav_controller.pending_goal:
+            pgx, pgy, pgyaw = self._nav_controller.pending_goal
+            pmx, pmy = self._world_to_map_pixels(pgx, pgy)
+            
+            arrow_len_pixels = 35.0
+            pemx = pmx + arrow_len_pixels * math.cos(pgyaw)
+            pemy = pmy - arrow_len_pixels * math.sin(pgyaw) # minus because map coordinates run downwards
+            
+            self._draw_direction_arrow(painter, QPointF(pmx, pmy), QPointF(pemx, pemy), QColor("#2196F3"))
+
+        # 4. Render Static Confirmed Execution Targets Marker Box
         if self._nav_controller and self._nav_controller.active_goal:
             gx, gy, gyaw = self._nav_controller.active_goal
             gmx, gmy = self._world_to_map_pixels(gx, gy)
@@ -266,18 +333,20 @@ class MapWidget(QWidget):
             painter.drawLine(int(-rad), int(rad), int(rad), int(-rad))
             painter.restore()
 
-        # 4. Render Active Drag Target Indicator Vectors
+        # 5. Render Active Mouse Drag Placement Vector Tracks
         if self._is_placing_pose and self._nav_controller:
             smx, smy = self._world_to_map_pixels(self._drag_start_world.x(), self._drag_start_world.y())
             cmx, cmy = self._world_to_map_pixels(self._drag_current_world.x(), self._drag_current_world.y())
             
-            vector_color = QColor("#2196f3") if self._nav_controller.interaction_mode == "INITIAL_POSE" else QColor("#44d8f1")
-            painter.setPen(QPen(vector_color, 2, Qt.PenStyle.DashLine))
-            painter.drawLine(QPointF(smx, smy), QPointF(cmx, cmy))
-            painter.setBrush(QBrush(vector_color))
-            painter.drawEllipse(QPointF(smx, smy), 4.0, 4.0)
+            start_map_pt = QPointF(smx, smy)
+            end_map_pt = QPointF(cmx, cmy)
+            
+            if self._nav_controller.interaction_mode == "INITIAL_POSE":
+                self._draw_direction_arrow(painter, start_map_pt, end_map_pt, QColor("#4CAF50")) 
+            elif self._nav_controller.interaction_mode == "GOAL_SELECTION":
+                self._draw_direction_arrow(painter, start_map_pt, end_map_pt, QColor("#2196F3")) 
 
-        # 5. Render Active Robot Chassis Base Circle
+        # 6. Render Active Robot Chassis Base Circle
         rx, ry = self._world_to_map_pixels(self._robot_x, self._robot_y)
         painter.save()
         painter.translate(rx, ry)
