@@ -177,6 +177,9 @@ class MapWidget(QWidget):
         return mx, my
 
     def _canvas_wheel_event(self, event) -> None:
+        # 🔒 Block zoom interaction adjustments if the system is navigating active missions
+        if self._nav_controller and self._nav_controller.is_navigating():
+            return
         if self._nav_controller and self._nav_controller.interaction_mode in ["INITIAL_POSE", "GOAL_SELECTION"]:
             return  
         factor = 1.1 if event.angleDelta().y() > 0 else 0.9
@@ -184,6 +187,10 @@ class MapWidget(QWidget):
         self.canvas.update()
 
     def _canvas_mouse_press(self, event) -> None:
+        # 🔒 Block placement gestures if the system is actively navigating missions
+        if self._nav_controller and self._nav_controller.is_navigating():
+            return
+            
         if self._nav_controller and self._nav_controller.interaction_mode in ["INITIAL_POSE", "GOAL_SELECTION"]:
             self._is_placing_pose = True
             self._drag_start_world = self._pixel_to_world(event.position())
@@ -208,15 +215,11 @@ class MapWidget(QWidget):
             self._is_placing_pose = False
             self._drag_current_world = self._pixel_to_world(event.position())
             
-            # ✅ FIX: Get the exact map pixel coordinates of the drag endpoints to avoid transformation bugs
             smx, smy = self._world_to_map_pixels(self._drag_start_world.x(), self._drag_start_world.y())
             cmx, cmy = self._world_to_map_pixels(self._drag_current_world.x(), self._drag_current_world.y())
             
-            # Calculate delta directly in map pixel space (where Y points down)
             pm_dx = cmx - smx
             pm_dy = cmy - smy
-            
-            # Convert screen delta to clean ROS world yaw (negate Y because world Y is up)
             yaw = math.atan2(-pm_dy, pm_dx)
 
             if self._nav_controller.interaction_mode == "INITIAL_POSE":
@@ -315,7 +318,7 @@ class MapWidget(QWidget):
             
             arrow_len_pixels = 35.0
             pemx = pmx + arrow_len_pixels * math.cos(pgyaw)
-            pemy = pmy - arrow_len_pixels * math.sin(pgyaw) # minus because map coordinates run downwards
+            pemy = pmy - arrow_len_pixels * math.sin(pgyaw)
             
             self._draw_direction_arrow(painter, QPointF(pmx, pmy), QPointF(pemx, pemy), QColor("#2196F3"))
 

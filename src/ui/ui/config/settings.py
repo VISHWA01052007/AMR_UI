@@ -29,3 +29,5 @@ NAVIGATION_START_COMMAND_TEMPLATE = 'ros2 launch nav2_bringup bringup_launch.py 
 INITIAL_POSE_TOPIC = "/initialpose"
 GOAL_POSE_TOPIC = "/goal_pose"
 GLOBAL_PLAN_TOPIC = "/plan"
+
+NAV2_ACTION_SERVER = "navigate_to_pose"

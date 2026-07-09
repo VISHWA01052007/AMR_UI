@@ -18,8 +18,10 @@ from PyQt6.QtWidgets import QApplication
 
 import rclpy
 from rclpy.node import Node
+from rclpy.action import ActionClient
 from geometry_msgs.msg import Twist, PoseWithCovarianceStamped, PoseStamped
 from nav_msgs.msg import Odometry, OccupancyGrid, Path as RosPath
+from nav2_msgs.action import NavigateToPose
 
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
@@ -29,6 +31,7 @@ from .controllers.robot_status_controller import RobotStatusController
 from .controllers.map_controller import MapController
 from .controllers.slam_controller import SlamController
 from .controllers.navigation_controller import NavigationController
+from .controllers.mission_log_controller import MissionLogController
 from .config import settings
 
 RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
@@ -55,13 +58,18 @@ class UINode(Node):
         self._current_operation_mode: str = "IDLE"
         self._slam_process: subprocess.Popen | None = None
         self._navigation_process: subprocess.Popen | None = None
+        
+        # Action feedback memory handle tracking
+        self._navigation_goal_handle = None
 
         # 1. Permanent Communications Channels (Always Alive Infrastructure)
         self._cmd_vel_pub = self.create_publisher(Twist, settings.CMD_VEL_TOPIC, 10)
         self._odom_sub = self.create_subscription(Odometry, settings.ODOM_TOPIC, self.odom_callback, 10)
-        
         self._initial_pose_pub = self.create_publisher(PoseWithCovarianceStamped, settings.INITIAL_POSE_TOPIC, 10)
-        self._goal_pose_pub = self.create_publisher(PoseStamped, settings.GOAL_POSE_TOPIC, 10)
+        
+        # UPGRADE: Initializing a robust Action Client instead of a basic topic publisher
+        print("[DEBUG UINODE] Spawning Nav2 application action client wrapper...")
+        self._nav_action_client = ActionClient(self, NavigateToPose, settings.NAV2_ACTION_SERVER)
 
         map_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
@@ -81,11 +89,14 @@ class UINode(Node):
         self._pose_timer = self.create_timer(0.1, self.lookup_robot_pose_callback)
 
         # 3. Domain State Machine Controllers
+        # ✅ FIX: Instantiated central logging source of truth first to feed downstream controllers
+        self._mission_log_controller = MissionLogController()
+        
         self._manual_controller = ManualController(publish_callback=self.publish_cmd_vel)
-        self._robot_status_controller = RobotStatusController()
+        self._robot_status_controller = RobotStatusController(mission_log_controller=self._mission_log_controller)
         self._map_controller = MapController()
-        self._slam_controller = SlamController()
-        self._navigation_controller = NavigationController()
+        self._slam_controller = SlamController(mission_log_controller=self._mission_log_controller)
+        self._navigation_controller = NavigationController(mission_log_controller=self._mission_log_controller)
 
         # 4. Bind Signal Routing Actions
         self._slam_controller.start_requested.connect(self.handle_slam_start)
@@ -94,10 +105,15 @@ class UINode(Node):
         
         self._navigation_controller.toggle_requested.connect(self._on_navigation_toggle_triggered)
         self._navigation_controller.initial_pose_published.connect(self.publish_initial_pose_msg)
-        self._navigation_controller.goal_pose_published.connect(self.publish_goal_pose_msg)
+        
+        # FIX: Direct the goal_pose_published signal to the action dispatcher method
+        self._navigation_controller.goal_pose_published.connect(self.send_navigation_action_goal)
         self._navigation_controller.abort_requested.connect(self.handle_navigation_abort)
 
         self.window = None
+        
+        # ✅ Notify system ready state milestone on launch complete
+        self._mission_log_controller.log_info("Robot is ready.")
         print("=== [DEBUG UINODE] CORE WORKSPACE INITIALIZED. STANDING BY FOR WINDOW SEED ===\n")
 
     def init_ui(self) -> None:
@@ -106,7 +122,8 @@ class UINode(Node):
             robot_status_controller=self._robot_status_controller,
             map_controller=self._map_controller,
             slam_controller=self._slam_controller,
-            navigation_controller=self._navigation_controller
+            navigation_controller=self._navigation_controller,
+            mission_log_controller=self._mission_log_controller
         )
         self.window.show()
 
@@ -136,7 +153,8 @@ class UINode(Node):
             cmd = shlex.split(settings.SLAM_START_COMMAND)
             self._slam_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
             self._slam_controller.update_execution_state(running=True, busy=False)
-        except Exception: 
+        except Exception:
+            self._mission_log_controller.log_error("Unable to start mapping.")
             self.request_mode_transition("IDLE")
 
     def handle_slam_stop(self) -> None:
@@ -162,8 +180,11 @@ class UINode(Node):
     def handle_slam_save(self, filename: str) -> None:
         try:
             cmd = shlex.split(f"{settings.SLAM_SAVE_COMMAND_BASE} {filename}")
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5.0)
-        except Exception: pass
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5.0)
+            if res.returncode != 0:
+                self._mission_log_controller.log_error("Unable to save map.")
+        except Exception:
+            self._mission_log_controller.log_error("Unable to save map.")
         self._slam_controller.update_execution_state(running=True, busy=False)
 
     # --- Navigation Toggle Lifecycle Routing ---
@@ -179,8 +200,11 @@ class UINode(Node):
             cmd = shlex.split(full_command_str)
             self._navigation_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
             self._navigation_controller.update_execution_state(running=True, busy=False)
+            # ✅ Log operational loading confirmation
+            self._mission_log_controller.log_success("Map loaded successfully.")
         except Exception:
             self._navigation_process = None
+            self._mission_log_controller.log_error("Failed to load map.")
             self.request_mode_transition("IDLE")
 
     def handle_navigation_stop(self) -> None:
@@ -201,8 +225,13 @@ class UINode(Node):
             self._navigation_process = None
         self.request_mode_transition("IDLE")
 
+    # FIX: Handle programmatic Nav2 action cancellation when ABORT is pressed
     def handle_navigation_abort(self) -> None:
-        print("[DEBUG UINODE] Navigation goals track flushed.")
+        print("[DEBUG UINODE] Navigation cancel requested.")
+        if self._navigation_goal_handle:
+            print("[DEBUG UINODE] Actively canceling the ongoing Nav2 action goal...")
+            self._navigation_goal_handle.cancel_goal_async()
+            self._navigation_goal_handle = None
 
     # --- Math Vector Publishers Mapping ---
     def publish_initial_pose_msg(self, x: float, y: float, yaw: float) -> None:
@@ -219,18 +248,54 @@ class UINode(Node):
         self._initial_pose_pub.publish(msg)
         print("[DEBUG UINODE] /initialpose message fired to the network.")
 
-    def publish_goal_pose_msg(self, x: float, y: float, yaw: float) -> None:
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = "map"
-        msg.pose.position.x = x
-        msg.pose.position.y = y
-        msg.pose.orientation.z = math.sin(yaw / 2.0)
-        msg.pose.orientation.w = math.cos(yaw / 2.0)
-        self._goal_pose_pub.publish(msg)
-        print("[DEBUG UINODE] /goal_pose message fired to the network.")
+    # FIX: Replaced topic publishing with an asynchronous action goal dispatch loop
+    def send_navigation_action_goal(self, x: float, y: float, yaw: float) -> None:
+        """Assembles and dispatches an asynchronous execution request to the Nav2 action server."""
+        print("[DEBUG UINODE] Waiting for Nav2 Action Server to stand up...")
+        if not self._nav_action_client.wait_for_server(timeout_sec=3.0):
+            # ✅ Direct, clear connection error tracking
+            self._mission_log_controller.log_error("Unable to connect to robot navigation systems.")
+            self._navigation_controller.request_mission_abort()
+            return
 
-    # --- Callbacks (Decoupled & Context-Aware Filters) ---
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
+        goal_msg.pose.header.frame_id = "map"
+        goal_msg.pose.pose.position.x = x
+        goal_msg.pose.pose.position.y = y
+        goal_msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
+        goal_msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
+
+        print(f"[DEBUG UINODE] Dispatching action goal asynchronously to Nav2 server -> Target: ({x:.2f}, {y:.2f})")
+        send_goal_future = self._nav_action_client.send_goal_async(goal_msg)
+        send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future) -> None:
+        try:
+            goal_handle = future.result()
+            if not goal_handle.accepted:
+                # ✅ Append direct user notification on path-finding rejection
+                self._mission_log_controller.log_error("Destination unreachable.")
+                self._navigation_controller.request_mission_abort()
+                return
+
+            print("[DEBUG UINODE] Nav2 Action Server accepted our goal coordinates. Tracking feedback loops...")
+            self._navigation_goal_handle = goal_handle
+            get_result_future = goal_handle.get_result_async()
+            get_result_future.add_done_callback(self.goal_result_callback)
+        except Exception:
+            self._mission_log_controller.log_error("Destination unreachable.")
+            self._navigation_controller.request_mission_abort()
+
+    def goal_result_callback(self, future) -> None:
+        """Invoked automatically by rclpy when the robot succeeds, fails, or aborts the navigation task."""
+        print("[DEBUG UINODE] Action result transaction returned from server.")
+        self._navigation_goal_handle = None
+        
+        # Force the UI state machine controller to fall back safely into IDLE mode bounds
+        self._navigation_controller.notify_navigation_completed()
+
+    # --- Callbacks ---
     def plan_callback(self, msg: RosPath) -> None:
         if self._current_operation_mode != "NAVIGATION":
             return

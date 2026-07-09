@@ -123,14 +123,25 @@ class NavigationWidget(QFrame):
         self.navigation_toggle.setEnabled(not ctrl.busy)
         is_ready = ctrl.running and not ctrl.busy
         
+        # ✅ FIX: Contextual interlock limits. Disable tool selection changes while a navigation mission is active
+        if ctrl.is_navigating():
+            self.set_initial_pose_button.setEnabled(False)
+            self.set_goal_pose_button.setEnabled(False)
+            self.waypoints_button.setEnabled(False)
+            self.continuous_motion_button.setEnabled(False)
+            self.start_button.setEnabled(False)
+            self.abort_button.setEnabled(True)  # Keep ABORT enabled during execution
+            return
+
+        # Regular Staging Conditions Evaluator
         self.set_initial_pose_button.setEnabled(is_ready)
         self.set_goal_pose_button.setEnabled(is_ready)
         self.waypoints_button.setEnabled(is_ready)
         self.continuous_motion_button.setEnabled(is_ready)
-        self.abort_button.setEnabled(is_ready)
-
-        # ✅ FIX: The START execution button remains disabled until a valid pending candidate exists
-        self.start_button.setEnabled(is_ready and ctrl.has_pending_goal() and not ctrl.active_goal)
+        
+        # Enable START only when a candidate goal is staged, and enable ABORT to flush a staged preview if desired
+        self.start_button.setEnabled(is_ready and ctrl.is_goal_selected())
+        self.abort_button.setEnabled(is_ready and (ctrl.is_goal_selected() or ctrl.is_navigating()))
 
         if ctrl.interaction_mode == "INITIAL_POSE":
             self.set_initial_pose_button.setStyleSheet("background-color: #2a2a2a; border: 2px solid #2196f3; color: #ffffff; font-weight: bold;")

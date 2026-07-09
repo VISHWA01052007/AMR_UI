@@ -29,7 +29,7 @@ from .widgets.map_widget import MapWidget
 class MainWindow(QMainWindow):
     """Top-level window that assembles all dashboard widgets."""
 
-    def __init__(self, manual_controller, robot_status_controller, map_controller, slam_controller, navigation_controller) -> None:
+    def __init__(self, manual_controller, robot_status_controller, map_controller, slam_controller, navigation_controller, mission_log_controller) -> None:
         super().__init__()
 
         self._manual_controller = manual_controller
@@ -37,6 +37,8 @@ class MainWindow(QMainWindow):
         self._map_controller = map_controller
         self._slam_controller = slam_controller
         self._navigation_controller = navigation_controller
+        # ✅ Retain injected Event Log Controller reference in private context
+        self._mission_log_controller = mission_log_controller
 
         self.setWindowTitle("ROBOTIC_CORE v2.4 — AMR Dashboard")
         self.resize(1440, 900)
@@ -131,7 +133,8 @@ class MainWindow(QMainWindow):
         self.robot_status_widget = RobotStatusWidget(controller=self._robot_status_controller)
         self.slam_mapping_widget = SlamMappingWidget(controller=self._slam_controller)
         self.navigation_widget = NavigationWidget(controller=self._navigation_controller)
-        self.mission_log_widget = MissionLogWidget()
+        # ✅ FIX: Inject the live event controller dependency explicitly into the widget constructor
+        self.mission_log_widget = MissionLogWidget(controller=self._mission_log_controller)
 
         sidebar_content = QWidget()
         sidebar_layout = QVBoxLayout(sidebar_content)
